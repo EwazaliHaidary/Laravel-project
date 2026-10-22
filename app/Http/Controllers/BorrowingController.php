@@ -1,57 +1,94 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Http\Requests\StoreBorrowingRequest;
 use App\Http\Requests\UpdateBorrowingRequest;
 use App\Models\Borrowing;
+use App\Http\Resources\BorrowingResource;
 use Illuminate\Http\Request;
 
 class BorrowingController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    public function index(Request $request)
     {
-        return Borrowing::with(["user", "book"])
-        ->latest()
-        ->paginate(10);
+        $query = Borrowing::query()
+            ->with(['user', 'book']);
+
+        // Filtering
+        $query->when($request->query('user_id'), function ($q, $userId) {
+            $q->where('user_id', $userId);
+        });
+
+        $query->when($request->query('book_id'), function ($q, $bookId) {
+            $q->where('book_id', $bookId);
+        });
+
+        // Searching by book title
+        $query->when($request->query('search'), function ($q, $term) {
+            $q->whereHas('book', function ($bookQuery) use ($term) {
+                $bookQuery->where('title', 'like', "%{$term}%");
+            });
+        });
+
+        // Sorting
+        $sortable = ['borrowed_at', 'due_at', 'created_at'];
+
+        $sort = $request->query('sort', 'created_at');
+        $direction = $request->query('direction', 'desc');
+
+        if (!in_array($sort, $sortable, true)) {
+            $sort = 'created_at';
+        }
+
+        if (!in_array($direction, ['asc', 'desc'], true)) {
+            $direction = 'desc';
+        }
+
+        $query->orderBy($sort, $direction);
+
+        // Pagination control
+        $perPage = min(
+            100,
+            max(1, (int) $request->query('per_page', 10))
+        );
+
+        return BorrowingResource::collection(
+            $query->paginate($perPage)->withQueryString()
+        );
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreBorrowingRequest $request)
     {
         $borrowing = Borrowing::create($request->validated());
-        return response()->json($borrowing, 201);
+
+        return (new BorrowingResource(
+            $borrowing->load(['user', 'book'])
+        ))->response()->setStatusCode(201);
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Borrowing $borrowing)
     {
-        return $borrowing->load(["user", "book"]);
-
+        return new BorrowingResource(
+            $borrowing->load(['user', 'book'])
+        );
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(UpdateBorrowingRequest $request, Borrowing $borrowing)
-    {
+    public function update(
+        UpdateBorrowingRequest $request,
+        Borrowing $borrowing
+    ) {
         $borrowing->update($request->validated());
-        return response()->json($borrowing,200);
+
+        return new BorrowingResource(
+            $borrowing->load(['user', 'book'])
+        );
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Borrowing $borrowing)
-
     {
         $borrowing->delete();
+
         return response()->noContent();
     }
 }

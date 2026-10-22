@@ -5,7 +5,8 @@ use App\Http\Resources\AuthorResource;
 use App\Http\Requests\StoreAuthorRequest;
 use App\Http\Requests\UpdateAuthorRequest;
 use App\Models\Author;
-use Illuminate\Http\Request;
+
+
 
 class AuthorController extends Controller
 {
@@ -13,7 +14,7 @@ class AuthorController extends Controller
     {
         return AuthorResource::collection(
             Author::with('books')
-                -> latest()
+                ->latest()
                 ->paginate(10)
         
         );
