@@ -4,16 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreBorrowingRequest;
 use App\Http\Requests\UpdateBorrowingRequest;
-use App\Models\Borrowing;
 use App\Http\Resources\BorrowingResource;
+use App\Models\Borrowing;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class BorrowingController extends Controller
 {
     public function index(Request $request)
     {
         $query = Borrowing::query()
-            ->with(['user', 'book']);
+            ->with(['user', 'book'])
+            ->where('user_id', $request->user()->id);
 
         // Filtering
         $query->when($request->query('user_id'), function ($q, $userId) {
@@ -47,7 +49,7 @@ class BorrowingController extends Controller
 
         $query->orderBy($sort, $direction);
 
-        // Pagination control
+        // Pagination
         $perPage = min(
             100,
             max(1, (int) $request->query('per_page', 10))
@@ -60,7 +62,12 @@ class BorrowingController extends Controller
 
     public function store(StoreBorrowingRequest $request)
     {
-        $borrowing = Borrowing::create($request->validated());
+        $data = $request->validated();
+
+        // Assign the borrowing to the authenticated user
+        $data['user_id'] = $request->user()->id;
+
+        $borrowing = Borrowing::create($data);
 
         return (new BorrowingResource(
             $borrowing->load(['user', 'book'])
@@ -69,6 +76,8 @@ class BorrowingController extends Controller
 
     public function show(Borrowing $borrowing)
     {
+        Gate::authorize('view', $borrowing);
+
         return new BorrowingResource(
             $borrowing->load(['user', 'book'])
         );
@@ -78,7 +87,14 @@ class BorrowingController extends Controller
         UpdateBorrowingRequest $request,
         Borrowing $borrowing
     ) {
-        $borrowing->update($request->validated());
+        Gate::authorize('update', $borrowing);
+
+        $data = $request->validated();
+
+        // Prevent changing the borrowing owner
+        unset($data['user_id']);
+
+        $borrowing->update($data);
 
         return new BorrowingResource(
             $borrowing->load(['user', 'book'])
@@ -87,6 +103,8 @@ class BorrowingController extends Controller
 
     public function destroy(Borrowing $borrowing)
     {
+        Gate::authorize('delete', $borrowing);
+
         $borrowing->delete();
 
         return response()->noContent();

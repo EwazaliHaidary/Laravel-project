@@ -1,10 +1,11 @@
-
 <?php
 
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Auth\AuthenticationException;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -22,9 +23,36 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Return JSON responses for API requests
         $exceptions->shouldRenderJsonWhen(
-            fn (Request $request) => $request->is('api/*')
-                || $request->expectsJson(),
+            fn (Request $request, Throwable $e) =>
+                $request->is('api/*') || $request->expectsJson(),
         );
+
+        // Handle unauthenticated API requests (401)
+        $exceptions->render(function (
+            AuthenticationException $e,
+            Request $request
+        ) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => 'Authentication required',
+                    'errors' => (object) [],
+                ], 401);
+            }
+        });
+
+        // Handle unauthorized API requests (403)
+        $exceptions->render(function (
+            AuthorizationException $e,
+            Request $request
+        ) {
+            if ($request->is('api/*')) {
+                return response()->json([
+                    'message' => $e->getMessage()
+                        ?: 'You are not allowed to do that',
+                    'errors' => (object) [],
+                ], 403);
+            }
+        });
 
         // Handle missing database records
         $exceptions->render(function (
@@ -51,6 +79,5 @@ return Application::configure(basePath: dirname(__DIR__))
                 ], 404);
             }
         });
-
     })
     ->create();
