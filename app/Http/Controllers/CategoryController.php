@@ -44,7 +44,7 @@ class CategoryController extends Controller
 
         $query->orderBy($sort, $direction);
 
-        // Pagination control
+        // Pagination
         $perPage = min(
             100,
             max(1, (int) $request->query('per_page', 10))

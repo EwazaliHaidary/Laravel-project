@@ -8,6 +8,7 @@ use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BorrowingController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\controllers\UserController;
 
 Route::prefix('v1')->group(function () {
 
@@ -18,7 +19,7 @@ Route::prefix('v1')->group(function () {
     // Protected routes: token required
     Route::middleware('auth:sanctum')->group(function () {
 
-        // Authentication routes
+        Route::post('/me/avatar', [UserController::class, 'uploadAvatar']);
         Route::post('/logout', [AuthController::class, 'logout']);
 
         Route::get('/me', function (Request $request) {

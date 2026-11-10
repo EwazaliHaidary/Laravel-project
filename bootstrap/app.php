@@ -6,8 +6,8 @@ use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Auth\Access\AuthorizationException;
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Throwable;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -54,27 +54,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
         });
 
-        // Handle missing database records
-        $exceptions->render(function (
-            ModelNotFoundException $e,
-            Request $request
-        ) {
-            if ($request->is('api/*')) {
-                return response()->json([
-                    'message' => 'Resource not found',
-                    'errors' => (object) [],
-                ], 404);
-            }
-        });
-
-        // Handle unknown API endpoints
+        // Handle missing resources and unknown API endpoints (404)
         $exceptions->render(function (
             NotFoundHttpException $e,
             Request $request
         ) {
             if ($request->is('api/*')) {
                 return response()->json([
-                    'message' => 'Endpoint not found',
+                    'message' => 'Resource or endpoint not found',
                     'errors' => (object) [],
                 ], 404);
             }
