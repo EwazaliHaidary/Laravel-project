@@ -16,12 +16,13 @@ class BookController extends Controller
             ->with(['author', 'category']);
 
         // Filtering
+   // Filtering using local scopes
         $query->when($request->query('category_id'), function ($q, $categoryId) {
-            $q->where('category_id', $categoryId);
+            $q->byCategory((int) $categoryId);
         });
 
         $query->when($request->query('author_id'), function ($q, $authorId) {
-            $q->where('author_id', $authorId);
+            $q->byAuthor((int) $authorId);
         });
 
         // Searching
